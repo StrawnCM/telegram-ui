@@ -185,3 +185,42 @@ body {
   color: var(--text);
   padding: 0.65rem;
 }
+
+.auth-panel {
+  background: var(--panel);
+  border: 1px solid #22335d;
+  border-radius: 16px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.auth-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.auth-panel p {
+  color: var(--muted);
+  margin: 0 0 0.8rem;
+}
+
+.auth-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.auth-form input,
+.auth-form button {
+  border: 1px solid #324378;
+  border-radius: 10px;
+  background: #101933;
+  color: var(--text);
+  padding: 0.6rem 0.7rem;
+}
+
+.auth-form button {
+  cursor: pointer;
+  background: #1b2a57;
+}

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Telegram UI v1</title>
+    <title>Telegram UI live</title>
     <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
@@ -12,6 +12,26 @@
         <h1>Telegram UI</h1>
         <p class="hint">←/→ spin · Enter open chat · Esc close · ⌘K search (coming soon)</p>
       </header>
+
+      <section id="authPanel" class="auth-panel">
+        <h2>Connect your Telegram</h2>
+        <p data-auth-state>Enter your phone number to sign in.</p>
+
+        <form id="phoneForm" class="auth-form">
+          <input id="phoneInput" type="text" placeholder="+1 555 123 4567" autocomplete="tel" required />
+          <button type="submit">Send code</button>
+        </form>
+
+        <form id="codeForm" class="auth-form" hidden>
+          <input id="codeInput" type="text" placeholder="Telegram code" autocomplete="one-time-code" required />
+          <button type="submit">Verify code</button>
+        </form>
+
+        <form id="passwordForm" class="auth-form" hidden>
+          <input id="passwordInput" type="password" placeholder="2FA password" autocomplete="current-password" required />
+          <button type="submit">Verify password</button>
+        </form>
+      </section>
 
       <section class="carousel-shell" aria-label="Contact carousel">
         <button id="prevContact" class="nav-btn" aria-label="Previous contact">←</button>
