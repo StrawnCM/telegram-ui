@@ -28,6 +28,11 @@ function ensureConfigured() {
   }
 }
 
+function clearAuthState() {
+  authState.phoneNumber = null;
+  authState.phoneCodeHash = null;
+}
+
 function getClient() {
   ensureConfigured();
   if (!client) {
@@ -42,9 +47,23 @@ function getClient() {
 async function ensureConnected() {
   const telegramClient = getClient();
   if (!connectingPromise) {
-    connectingPromise = telegramClient.connect();
+    connectingPromise = telegramClient.connect().catch((error) => {
+      connectingPromise = null;
+      throw error;
+    });
   }
+
   await connectingPromise;
+  return telegramClient;
+}
+
+async function ensureAuthorizedClient() {
+  const telegramClient = await ensureConnected();
+  const authorized = await telegramClient.checkAuthorization();
+  if (!authorized) {
+    return null;
+  }
+
   return telegramClient;
 }
 
@@ -68,6 +87,11 @@ async function resolvePeerFromDialogId(dialogId) {
   return telegramClient.getEntity(BigInt(dialogId));
 }
 
+function sendError(res, statusCode, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  res.status(statusCode).json({ ok: false, error: message });
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -78,41 +102,46 @@ app.get('/api/auth/status', async (_req, res) => {
     const authorized = await telegramClient.checkAuthorization();
     res.json({ ok: true, authorized });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
 app.post('/api/auth/send-code', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
-    if (!phoneNumber) {
-      res.status(400).json({ ok: false, error: 'phoneNumber is required.' });
+    if (!phoneNumber?.trim()) {
+      sendError(res, 400, 'phoneNumber is required.');
       return;
     }
 
     const telegramClient = await ensureConnected();
-    const result = await telegramClient.sendCode({ apiId, apiHash }, phoneNumber);
-    authState.phoneNumber = phoneNumber;
+    const result = await telegramClient.sendCode({ apiId, apiHash }, phoneNumber.trim());
+    authState.phoneNumber = phoneNumber.trim();
     authState.phoneCodeHash = result.phoneCodeHash;
 
-    res.json({ ok: true, phoneCodeHash: result.phoneCodeHash, isCodeViaApp: result.isCodeViaApp });
+    res.json({ ok: true, isCodeViaApp: result.isCodeViaApp });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
 app.post('/api/auth/verify-code', async (req, res) => {
   try {
     const { code } = req.body;
+    if (!code?.trim()) {
+      sendError(res, 400, 'code is required.');
+      return;
+    }
+
     if (!authState.phoneNumber || !authState.phoneCodeHash) {
-      res.status(400).json({ ok: false, error: 'Request code first.' });
+      sendError(res, 400, 'Request code first.');
       return;
     }
 
     const telegramClient = await ensureConnected();
     const user = await telegramClient.signInUser({ apiId, apiHash }, {
       phoneNumber: async () => authState.phoneNumber,
-      phoneCode: async () => code,
+      phoneCode: async () => code.trim(),
       phoneCodeHash: async () => authState.phoneCodeHash,
       password: async () => '',
       onError: (error) => {
@@ -120,21 +149,27 @@ app.post('/api/auth/verify-code', async (req, res) => {
       }
     });
 
+    clearAuthState();
     saveSession();
     res.json({ ok: true, user: { id: String(user.id), firstName: user.firstName, username: user.username } });
   } catch (error) {
     if (String(error?.message || '').includes('SESSION_PASSWORD_NEEDED')) {
-      res.status(401).json({ ok: false, needsPassword: true, error: 'Two-step verification password required.' });
+      sendError(res, 401, 'Two-step verification password required.');
       return;
     }
 
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
 app.post('/api/auth/verify-password', async (req, res) => {
   try {
     const { password } = req.body;
+    if (!password) {
+      sendError(res, 400, 'password is required.');
+      return;
+    }
+
     const telegramClient = await ensureConnected();
     const user = await telegramClient.signInWithPassword({ apiId, apiHash }, {
       password: async () => password,
@@ -143,19 +178,19 @@ app.post('/api/auth/verify-password', async (req, res) => {
       }
     });
 
+    clearAuthState();
     saveSession();
     res.json({ ok: true, user: { id: String(user.id), firstName: user.firstName, username: user.username } });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
 app.get('/api/chats', async (_req, res) => {
   try {
-    const telegramClient = await ensureConnected();
-    const authorized = await telegramClient.checkAuthorization();
-    if (!authorized) {
-      res.status(401).json({ ok: false, error: 'Unauthorized.' });
+    const telegramClient = await ensureAuthorizedClient();
+    if (!telegramClient) {
+      sendError(res, 401, 'Unauthorized.');
       return;
     }
 
@@ -168,18 +203,23 @@ app.get('/api/chats', async (_req, res) => {
 
     res.json({ ok: true, chats });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
 app.get('/api/messages/:chatId', async (req, res) => {
   try {
-    const telegramClient = await ensureConnected();
+    const telegramClient = await ensureAuthorizedClient();
+    if (!telegramClient) {
+      sendError(res, 401, 'Unauthorized.');
+      return;
+    }
+
     const entity = await resolvePeerFromDialogId(req.params.chatId);
     const messages = await telegramClient.getMessages(entity, { limit: 40 });
     res.json({ ok: true, messages: messages.reverse().map(serializeMessage) });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
@@ -187,16 +227,21 @@ app.post('/api/messages/:chatId', async (req, res) => {
   try {
     const { text } = req.body;
     if (!text?.trim()) {
-      res.status(400).json({ ok: false, error: 'text is required.' });
+      sendError(res, 400, 'text is required.');
       return;
     }
 
-    const telegramClient = await ensureConnected();
+    const telegramClient = await ensureAuthorizedClient();
+    if (!telegramClient) {
+      sendError(res, 401, 'Unauthorized.');
+      return;
+    }
+
     const entity = await resolvePeerFromDialogId(req.params.chatId);
     const result = await telegramClient.sendMessage(entity, { message: text.trim() });
     res.json({ ok: true, message: serializeMessage(result) });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
@@ -210,11 +255,10 @@ app.post('/api/auth/logout', async (_req, res) => {
 
     client = null;
     connectingPromise = null;
-    authState.phoneCodeHash = null;
-    authState.phoneNumber = null;
+    clearAuthState();
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    sendError(res, 500, error);
   }
 });
 
