@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram UI v1</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <main class="app" aria-live="polite">
+      <header class="topbar">
+        <h1>Telegram UI</h1>
+        <p class="hint">←/→ spin · Enter open chat · Esc close · ⌘K search (coming soon)</p>
+      </header>
+
+      <section class="carousel-shell" aria-label="Contact carousel">
+        <button id="prevContact" class="nav-btn" aria-label="Previous contact">←</button>
+        <ul id="carousel" class="carousel" role="list"></ul>
+        <button id="nextContact" class="nav-btn" aria-label="Next contact">→</button>
+      </section>
+
+      <section id="chatPanel" class="chat-panel" aria-hidden="true">
+        <div class="chat-header">
+          <h2 id="chatTitle">Select a contact</h2>
+          <button id="closeChat" class="ghost-btn" aria-label="Close chat">Esc</button>
+        </div>
+        <div id="chatMessages" class="messages"></div>
+        <form id="composer" class="composer">
+          <input id="messageInput" type="text" placeholder="Type a message…" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
