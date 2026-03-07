@@ -32,8 +32,19 @@ export function initCarousel({ contacts, carouselEl, onSelect }) {
       btn.type = 'button';
 
       const initial = (contact.name || '?').trim().charAt(0).toUpperCase() || '?';
+      const avatarWrapEl = document.createElement('div');
+      avatarWrapEl.className = 'avatar-wrap';
+
       const avatarEl = document.createElement('div');
       avatarEl.className = 'avatar';
+
+      if (contact.unreadCount > 0) {
+        const unreadEl = document.createElement('span');
+        unreadEl.className = 'unread-badge';
+        unreadEl.textContent = contact.unreadCount > 99 ? '99+' : String(contact.unreadCount);
+        unreadEl.setAttribute('aria-label', `${contact.unreadCount} unread messages`);
+        avatarWrapEl.appendChild(unreadEl);
+      }
 
       if (contact.avatarUrl) {
         const img = document.createElement('img');
@@ -58,7 +69,8 @@ export function initCarousel({ contacts, carouselEl, onSelect }) {
       nameEl.className = 'name';
       nameEl.textContent = contact.name;
 
-      btn.appendChild(avatarEl);
+      avatarWrapEl.appendChild(avatarEl);
+      btn.appendChild(avatarWrapEl);
       btn.appendChild(nameEl);
 
       btn.addEventListener('click', (e) => {
