@@ -30,10 +30,36 @@ export function initCarousel({ contacts, carouselEl, onSelect }) {
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.innerHTML = `
-        <div class="avatar">${contact.name[0]}</div>
-        <div class="name">${contact.name}</div>
-      `;
+
+      const initial = (contact.name || '?').trim().charAt(0).toUpperCase() || '?';
+      const avatarEl = document.createElement('div');
+      avatarEl.className = 'avatar';
+
+      if (contact.avatarUrl) {
+        const img = document.createElement('img');
+        img.className = 'avatar-image';
+        img.src = contact.avatarUrl;
+        img.alt = `${contact.name} avatar`;
+        img.loading = 'lazy';
+        img.referrerPolicy = 'no-referrer';
+        img.addEventListener('error', () => {
+          img.remove();
+          avatarEl.classList.add('avatar-fallback');
+          avatarEl.textContent = initial;
+        });
+
+        avatarEl.appendChild(img);
+      } else {
+        avatarEl.classList.add('avatar-fallback');
+        avatarEl.textContent = initial;
+      }
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = contact.name;
+
+      btn.appendChild(avatarEl);
+      btn.appendChild(nameEl);
 
       btn.addEventListener('click', (e) => {
         if (Math.abs(velocity) > 2) { e.preventDefault(); return; }
