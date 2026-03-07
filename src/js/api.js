@@ -1,5 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
 
+
+function buildAvatarUrl(chatId) {
+  const separator = API_BASE.includes('?') ? '&' : '?';
+  return `${API_BASE}/chats/${encodeURIComponent(chatId)}/avatar${separator}t=${Date.now()}`;
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -25,5 +31,6 @@ export const telegramApi = {
   sendMessage: (chatId, text) => request(`/messages/${encodeURIComponent(chatId)}`, {
     method: 'POST',
     body: JSON.stringify({ text })
-  })
+  }),
+  getAvatarUrl: (chatId) => buildAvatarUrl(chatId)
 };

@@ -22,6 +22,7 @@ async function loadChats() {
   const contacts = payload.chats.map((chatItem) => ({
     id: chatItem.id,
     name: chatItem.name,
+    avatarUrl: chatItem.hasAvatar ? telegramApi.getAvatarUrl(chatItem.id) : null,
     messages: []
   }));
 

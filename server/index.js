@@ -198,10 +198,35 @@ app.get('/api/chats', async (_req, res) => {
     const chats = dialogs.map((dialog) => ({
       id: String(dialog.id),
       name: dialog.title || dialog.name || 'Unknown',
-      unreadCount: dialog.unreadCount || 0
+      unreadCount: dialog.unreadCount || 0,
+      hasAvatar: Boolean(dialog.entity?.photo)
     }));
 
     res.json({ ok: true, chats });
+  } catch (error) {
+    sendError(res, 500, error);
+  }
+});
+
+app.get('/api/chats/:chatId/avatar', async (req, res) => {
+  try {
+    const telegramClient = await ensureAuthorizedClient();
+    if (!telegramClient) {
+      sendError(res, 401, 'Unauthorized.');
+      return;
+    }
+
+    const entity = await resolvePeerFromDialogId(req.params.chatId);
+    const avatarBuffer = await telegramClient.downloadProfilePhoto(entity, { isBig: false });
+
+    if (!avatarBuffer) {
+      res.status(404).json({ ok: false, error: 'Avatar not found.' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=600');
+    res.send(Buffer.isBuffer(avatarBuffer) ? avatarBuffer : Buffer.from(avatarBuffer));
   } catch (error) {
     sendError(res, 500, error);
   }
