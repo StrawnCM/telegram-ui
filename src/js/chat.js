@@ -1,14 +1,16 @@
+import { telegramApi } from './api.js';
+
 export function initChat({ panelEl, titleEl, messagesEl }) {
   let activeContact = null;
 
-  function renderMessages() {
+  function renderMessages(messages) {
     messagesEl.innerHTML = '';
-    if (!activeContact) {
-      messagesEl.innerHTML = '<p>Select a contact from the carousel to open chat.</p>';
+    if (!messages?.length) {
+      messagesEl.innerHTML = '<p>No messages yet.</p>';
       return;
     }
 
-    activeContact.messages.forEach((message) => {
+    messages.forEach((message) => {
       const bubble = document.createElement('div');
       bubble.className = `message ${message.direction}`;
       bubble.textContent = message.text;
@@ -18,30 +20,34 @@ export function initChat({ panelEl, titleEl, messagesEl }) {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  function openChat(contact) {
+  async function openChat(contact) {
     activeContact = contact;
     panelEl.setAttribute('aria-hidden', 'false');
     titleEl.textContent = contact.name;
-    renderMessages();
+    const payload = await telegramApi.getMessages(contact.id);
+    activeContact.messages = payload.messages;
+    renderMessages(activeContact.messages);
   }
 
   function closeChat() {
     panelEl.setAttribute('aria-hidden', 'true');
     titleEl.textContent = 'Select a contact';
     activeContact = null;
-    renderMessages();
+    messagesEl.innerHTML = '<p>Select a contact from the carousel to open chat.</p>';
   }
 
-  function send(text) {
+  async function send(text) {
     if (!activeContact || !text.trim()) {
       return;
     }
 
-    activeContact.messages.push({ direction: 'out', text: text.trim() });
-    renderMessages();
+    await telegramApi.sendMessage(activeContact.id, text.trim());
+    const payload = await telegramApi.getMessages(activeContact.id);
+    activeContact.messages = payload.messages;
+    renderMessages(activeContact.messages);
   }
 
-  renderMessages();
+  closeChat();
 
   return { openChat, closeChat, send, hasActive: () => Boolean(activeContact) };
 }

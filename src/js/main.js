@@ -1,14 +1,9 @@
-import { contacts } from './data.js';
 import { initCarousel } from './carousel.js';
 import { initChat } from './chat.js';
-import { initAuthStub } from './auth.js';
-import { initTdlibStub } from './api.js';
+import { initAuth } from './auth.js';
+import { telegramApi } from './api.js';
 
-const auth = initAuthStub();
-const api = initTdlibStub();
-console.info('[auth]', auth.message);
-console.info('[api]', api.message);
-
+const authPanel = document.getElementById('authPanel');
 const carouselEl = document.getElementById('carousel');
 const chatPanel = document.getElementById('chatPanel');
 const chatTitle = document.getElementById('chatTitle');
@@ -20,20 +15,50 @@ const composer = document.getElementById('composer');
 const messageInput = document.getElementById('messageInput');
 
 const chat = initChat({ panelEl: chatPanel, titleEl: chatTitle, messagesEl });
+let carousel = null;
 
-const carousel = initCarousel({
-  contacts,
-  carouselEl,
-  onSelect: (contact) => chat.openChat(contact)
+async function loadChats() {
+  const payload = await telegramApi.listChats();
+  const contacts = payload.chats.map((chatItem) => ({
+    id: chatItem.id,
+    name: chatItem.name,
+    messages: []
+  }));
+
+  if (!contacts.length) {
+    carouselEl.innerHTML = '<li class="contact active"><button type="button"><div class="name">No chats found</div></button></li>';
+    return;
+  }
+
+  carousel = initCarousel({
+    contacts,
+    carouselEl,
+    onSelect: (contact) => {
+      chat.openChat(contact).catch((error) => console.error(error));
+    }
+  });
+}
+
+const auth = initAuth({
+  rootEl: authPanel,
+  onAuthorized: () => {
+    loadChats().catch((error) => {
+      console.error(error);
+      window.alert(`Failed to load chats: ${error.message}`);
+    });
+  },
+  onError: (error) => console.error('[auth]', error.message)
 });
 
-prevBtn.addEventListener('click', carousel.movePrev);
-nextBtn.addEventListener('click', carousel.moveNext);
+auth.refreshStatus();
+
+prevBtn.addEventListener('click', () => carousel?.movePrev());
+nextBtn.addEventListener('click', () => carousel?.moveNext());
 closeBtn.addEventListener('click', chat.closeChat);
 
-composer.addEventListener('submit', (event) => {
+composer.addEventListener('submit', async (event) => {
   event.preventDefault();
-  chat.send(messageInput.value);
+  await chat.send(messageInput.value);
   messageInput.value = '';
   messageInput.focus();
 });
@@ -46,15 +71,18 @@ document.addEventListener('keydown', (event) => {
   }
 
   if (event.key === 'ArrowRight') {
-    carousel.moveNext();
+    carousel?.moveNext();
   }
 
   if (event.key === 'ArrowLeft') {
-    carousel.movePrev();
+    carousel?.movePrev();
   }
 
   if (event.key === 'Enter' && !chat.hasActive()) {
-    chat.openChat(carousel.getActive());
+    const active = carousel?.getActive();
+    if (active) {
+      chat.openChat(active).catch((error) => console.error(error));
+    }
   }
 
   if (event.key === 'Escape') {

@@ -4,11 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite src",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
     "build": "vite build src",
-    "preview": "vite preview src"
+    "preview": "vite preview src",
+    "dev:web": "vite src --host 0.0.0.0",
+    "dev:server": "node server/index.js"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "telegram": "^2.26.22"
   }
 }
