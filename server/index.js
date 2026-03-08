@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,9 +93,48 @@ function sendError(res, statusCode, error) {
   res.status(statusCode).json({ ok: false, error: message });
 }
 
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://187.77.8.248',
+  'https://187.77.8.248'
+];
+
+const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || defaultAllowedOrigins.join(','))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean));
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  }
+}));
 app.use(express.json());
+app.use('/api/auth', authLimiter);
+app.use(['/api/chats', '/api/messages'], chatLimiter);
 
 app.get('/api/auth/status', async (_req, res) => {
   try {
