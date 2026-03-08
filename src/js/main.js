@@ -60,9 +60,14 @@ closeBtn.addEventListener('click', chat.closeChat);
 
 composer.addEventListener('submit', async (event) => {
   event.preventDefault();
-  await chat.send(messageInput.value);
-  messageInput.value = '';
-  messageInput.focus();
+  try {
+    await chat.send(messageInput.value);
+    messageInput.value = '';
+    messageInput.focus();
+  } catch (error) {
+    console.error(error);
+    window.alert(`Failed to send message: ${error.message}`);
+  }
 });
 
 document.addEventListener('keydown', (event) => {
